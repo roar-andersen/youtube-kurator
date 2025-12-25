@@ -1,0 +1,66 @@
+{
+  "name": "YouTube Kurator",
+  "short_name": "Kurator",
+  "description": "Personlig YouTube-kurator for temabaserte spillelister",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2937",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mine Spillelister",
+      "short_name": "Spillelister",
+      "description": "Åpne dine spillelister",
+      "url": "/?view=list",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

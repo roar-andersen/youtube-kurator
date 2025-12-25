@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="description" content="Logg inn til YouTube Kurator">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+
+    <!-- Apple touch icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+
+    <title>Logg inn - YouTube Kurator</title>
+    <style>
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: var(--background);
+        }
+
+        .login-card {
+            background: linear-gradient(135deg, var(--background-card) 0%, var(--background-elevated) 100%);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px var(--primary-glow);
+            border: 1px solid var(--border-light);
+            padding: var(--spacing-2xl);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .login-card h1 {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+            font-family: var(--font-display);
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xl);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .form-group label {
+            font-weight: 700;
+            color: var(--text);
+            font-size: var(--font-size-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-group input {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-base);
+            color: var(--text);
+            background-color: var(--background-card);
+            font-family: var(--font-body);
+            transition: all var(--transition-fast);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background-color: var(--background-elevated);
+        }
+
+        .form-group input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .code-section {
+            padding: var(--spacing-lg);
+            background: linear-gradient(135deg, #2d2410 0%, #1a1608 100%);
+            border-radius: var(--radius-md);
+            border-left: 4px solid var(--primary);
+        }
+
+        .code-section p {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-size-sm);
+            line-height: 1.6;
+        }
+
+        .code-section strong {
+            color: var(--primary);
+        }
+
+        .button-group {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }
+
+        button {
+            flex: 1;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: var(--font-size-base);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            font-family: var(--font-body);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--shimmer);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: var(--gold-gradient);
+            color: var(--background);
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px var(--primary-glow);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: var(--background-elevated);
+            color: var(--text);
+            border: 1px solid var(--border-light);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: var(--background-card);
+            border-color: var(--primary);
+        }
+
+        .error-message {
+            padding: var(--spacing-lg);
+            background: linear-gradient(135deg, #2d0a0a 0%, #1a0505 100%);
+            border-left: 4px solid #ff6b6b;
+            border-radius: var(--radius-md);
+            color: #ff6b6b;
+            font-size: var(--font-size-sm);
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            opacity: 0.5;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid var(--primary);
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                padding: var(--spacing-xl);
+                max-width: 100%;
+            }
+
+            .login-card h1 {
+                font-size: var(--font-size-2xl);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1>📺 YouTube Kurator</h1>
+
+            <form class="login-form" id="login-form">
+                <!-- Error Message -->
+                <div class="error-message" id="error"></div>
+
+                <!-- Email Section -->
+                <div class="form-group">
+                    <label for="email">E-postadresse</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="eksempel@gmail.com"
+                        required
+                        :disabled="loading"
+                    />
+                </div>
+
+                <!-- Code Section (hidden initially) -->
+                <div id="code-section" style="display: none;">
+                    <div class="code-section">
+                        <p>Engangskode sendt til <strong id="email-display"></strong></p>
+                        <p style="margin-bottom: 0; font-size: 12px; color: #9ca3af;">
+                            Kontroller spam-mappen hvis du ikke mottar e-posten
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="code">Engangskode</label>
+                        <input
+                            type="text"
+                            id="code"
+                            name="code"
+                            placeholder="000000"
+                            maxlength="6"
+                            inputmode="numeric"
+                            pattern="[0-9]{6}"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button
+                        type="button"
+                        id="send-code-btn"
+                        class="btn-primary"
+                        onclick="sendCode()"
+                    >
+                        Send kode
+                    </button>
+                    <button
+                        type="button"
+                        id="verify-btn"
+                        class="btn-primary"
+                        onclick="verifyCode()"
+                        style="display: none;"
+                    >
+                        Logg inn
+                    </button>
+                    <button
+                        type="button"
+                        id="back-btn"
+                        class="btn-secondary"
+                        onclick="backToEmail()"
+                        style="display: none;"
+                    >
+                        Tilbake
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/auth-service.js"></script>
+    <script>
+        const authService = new AuthService();
+        let loading = false;
+
+        // If already logged in, redirect to main app
+        if (authService.isLoggedIn()) {
+            window.location.href = '/index.html';
+        }
+
+        async function sendCode() {
+            const email = document.getElementById('email').value.trim();
+            const errorDiv = document.getElementById('error');
+
+            // Validate email
+            if (!email) {
+                showError('E-postadresse er påkrevd');
+                return;
+            }
+
+            if (!isValidEmail(email)) {
+                showError('Ugyldig e-postadresse');
+                return;
+            }
+
+            try {
+                loading = true;
+                toggleButtons(true);
+                errorDiv.classList.remove('show');
+
+                const result = await authService.sendAuthCode(email);
+
+                if (result.success) {
+                    // Show code input section
+                    document.getElementById('email-display').textContent = email;
+                    document.getElementById('code-section').style.display = 'block';
+                    document.getElementById('send-code-btn').style.display = 'none';
+                    document.getElementById('verify-btn').style.display = 'block';
+                    document.getElementById('back-btn').style.display = 'block';
+                    document.getElementById('email').disabled = true;
+                    document.getElementById('code').focus();
+                } else {
+                    showError(result.message || 'Kunne ikke sende kode. Prøv igjen.');
+                }
+            } catch (error) {
+                console.error('Error sending code:', error);
+                showError('Noe gikk galt. Sjekk internettforbindelsen din.');
+            } finally {
+                loading = false;
+                toggleButtons(false);
+            }
+        }
+
+        async function verifyCode() {
+            const email = document.getElementById('email').value.trim();
+            const code = document.getElementById('code').value.trim();
+            const errorDiv = document.getElementById('error');
+
+            // Validate code
+            if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+                showError('Koden må være 6 tall');
+                return;
+            }
+
+            try {
+                loading = true;
+                toggleButtons(true);
+                errorDiv.classList.remove('show');
+
+                const result = await authService.verifyCode(email, code);
+
+                if (result.success) {
+                    // Redirect to main app
+                    window.location.href = '/index.html';
+                } else {
+                    showError(result.message || 'Ugyldig kode. Prøv igjen.');
+                    document.getElementById('code').value = '';
+                    document.getElementById('code').focus();
+                }
+            } catch (error) {
+                console.error('Error verifying code:', error);
+                showError('Noe gikk galt. Prøv igjen.');
+            } finally {
+                loading = false;
+                toggleButtons(false);
+            }
+        }
+
+        function backToEmail() {
+            document.getElementById('email-display').textContent = '';
+            document.getElementById('code-section').style.display = 'none';
+            document.getElementById('send-code-btn').style.display = 'block';
+            document.getElementById('verify-btn').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'none';
+            document.getElementById('email').disabled = false;
+            document.getElementById('code').value = '';
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('email').focus();
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function toggleButtons(disabled) {
+            document.getElementById('send-code-btn').disabled = disabled;
+            document.getElementById('verify-btn').disabled = disabled;
+            document.getElementById('back-btn').disabled = disabled;
+        }
+
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // Handle Enter key
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const codeSection = document.getElementById('code-section');
+                if (codeSection.style.display === 'none') {
+                    sendCode();
+                } else {
+                    verifyCode();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

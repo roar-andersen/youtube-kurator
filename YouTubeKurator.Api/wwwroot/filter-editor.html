@@ -1,0 +1,532 @@
+<!-- Filter Editor Modal -->
+<div x-show="showFilterEditor" class="modal-overlay" @click.self="closeFilterEditor()">
+    <div class="modal filter-editor-modal">
+        <div class="modal-header">
+            <h2>Rediger Filtre</h2>
+            <button @click="closeFilterEditor()" class="modal-close">✕</button>
+        </div>
+
+        <div class="modal-content">
+            <!-- Error Message -->
+            <div x-show="filterValidationError" class="filter-error">
+                <strong>⚠️</strong> <span x-text="filterValidationError"></span>
+            </div>
+
+            <!-- Success Message -->
+            <div x-show="filterSaveMessage" class="filter-success">
+                <strong>✓</strong> <span x-text="filterSaveMessage"></span>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="filter-tabs">
+                <button class="filter-tab" @click="$el.dataset.tab = 'themes'" :class="{'active': $el.dataset.tab === 'themes'}">
+                    🎯 Tema & Søk
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'duration'" :class="{'active': $el.dataset.tab === 'duration'}">
+                    ⏱️ Varighet
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'time'" :class="{'active': $el.dataset.tab === 'time'}">
+                    📅 Publisert
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'language'" :class="{'active': $el.dataset.tab === 'language'}">
+                    🌐 Språk
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'content'" :class="{'active': $el.dataset.tab === 'content'}">
+                    📹 Innhold
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'popularity'" :class="{'active': $el.dataset.tab === 'popularity'}">
+                    ⭐ Popularitet
+                </button>
+                <button class="filter-tab" @click="$el.dataset.tab = 'channels'" :class="{'active': $el.dataset.tab === 'channels'}">
+                    📺 Kanaler
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="filter-content">
+                <!-- 1. Themes & Keywords Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'themes'">
+                    <h3>Temaer</h3>
+                    <p class="filter-help">Legg til temaer du er interessert i (f.eks. gaming, musikkk, programmering)</p>
+                    <div class="tag-input">
+                        <input
+                            type="text"
+                            x-model="themeInput"
+                            @keypress.enter="addTheme()"
+                            placeholder="Legg til tema..."
+                            class="input"
+                        />
+                        <button @click="addTheme()" class="btn btn-small">Legg til</button>
+                    </div>
+                    <div class="tags-display">
+                        <template x-for="theme in filters.themes" :key="theme">
+                            <div class="tag">
+                                <span x-text="theme"></span>
+                                <button @click="removeTheme(theme)" class="tag-remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <h3 style="margin-top: 30px;">Nøkkelord å inkludere</h3>
+                    <p class="filter-help">Videoer må inneholde minst ett av disse nøkkelordene</p>
+                    <div class="tag-input">
+                        <input
+                            type="text"
+                            x-model="includeKeywordInput"
+                            @keypress.enter="addIncludeKeyword()"
+                            placeholder="Legg til nøkkelord..."
+                            class="input"
+                        />
+                        <button @click="addIncludeKeyword()" class="btn btn-small">Legg til</button>
+                    </div>
+                    <div class="tags-display">
+                        <template x-for="keyword in filters.keywords.include" :key="keyword">
+                            <div class="tag tag-include">
+                                <span x-text="keyword"></span>
+                                <button @click="removeIncludeKeyword(keyword)" class="tag-remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <h3 style="margin-top: 30px;">Nøkkelord å ekskludere</h3>
+                    <p class="filter-help">Videoer som inneholder disse skal ikke vises</p>
+                    <div class="tag-input">
+                        <input
+                            type="text"
+                            x-model="excludeKeywordInput"
+                            @keypress.enter="addExcludeKeyword()"
+                            placeholder="Legg til nøkkelord..."
+                            class="input"
+                        />
+                        <button @click="addExcludeKeyword()" class="btn btn-small">Legg til</button>
+                    </div>
+                    <div class="tags-display">
+                        <template x-for="keyword in filters.keywords.exclude" :key="keyword">
+                            <div class="tag tag-exclude">
+                                <span x-text="keyword"></span>
+                                <button @click="removeExcludeKeyword(keyword)" class="tag-remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 2. Duration Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'duration'">
+                    <h3>Videolengde</h3>
+                    <p class="filter-help">Velg ønsket lengde på videoer</p>
+                    <div class="form-group">
+                        <label>Minimum varighet (sekunder)</label>
+                        <input type="number" x-model.number="filters.duration.min" min="0" class="input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Maksimum varighet (sekunder)</label>
+                        <input type="number" x-model.number="filters.duration.max" min="0" class="input" />
+                    </div>
+                    <div class="filter-preview">
+                        <strong>Valgt range:</strong> <span x-text="formatDuration(filters.duration.min) + ' - ' + formatDuration(filters.duration.max)"></span>
+                    </div>
+                </div>
+
+                <!-- 3. Published Time Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'time'">
+                    <h3>Publiseringstid</h3>
+                    <div class="form-group">
+                        <label>
+                            <input type="radio" x-model="filters.publishedTime.type" value="relative" />
+                            Relativ (siste X dager)
+                        </label>
+                        <label style="margin-left: 20px;">
+                            <input type="radio" x-model="filters.publishedTime.type" value="absolute" />
+                            Absolutt (fra/til dato)
+                        </label>
+                    </div>
+
+                    <template x-if="filters.publishedTime.type === 'relative'">
+                        <div class="form-group">
+                            <label>Antall dager tilbake</label>
+                            <select x-model.number="filters.publishedTime.days" class="input">
+                                <option value="1">Siste 1 dag</option>
+                                <option value="7">Siste 7 dager</option>
+                                <option value="30">Siste 30 dager</option>
+                                <option value="90">Siste 90 dager</option>
+                                <option value="365">Siste 365 dager</option>
+                            </select>
+                        </div>
+                    </template>
+
+                    <template x-if="filters.publishedTime.type === 'absolute'">
+                        <div class="form-group">
+                            <label>Fra dato</label>
+                            <input type="date" x-model="filters.publishedTime.fromDate" class="input" />
+                        </div>
+                        <div class="form-group">
+                            <label>Til dato</label>
+                            <input type="date" x-model="filters.publishedTime.toDate" class="input" />
+                        </div>
+                    </template>
+                </div>
+
+                <!-- 4. Language Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'language'">
+                    <h3>Språk og Region</h3>
+                    <div class="form-group">
+                        <label>Foretrukket språk</label>
+                        <select x-model="filters.language.preferred" class="input">
+                            <option value="no">Norsk</option>
+                            <option value="en">English</option>
+                            <option value="sv">Svenska</option>
+                            <option value="da">Dansk</option>
+                            <option value="de">Deutsch</option>
+                            <option value="fr">Français</option>
+                            <option value="es">Español</option>
+                            <option value="pt">Português</option>
+                            <option value="it">Italiano</option>
+                            <option value="ja">日本語</option>
+                            <option value="zh">中文</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <select x-model="filters.language.region" class="input">
+                            <option value="NO">Norge</option>
+                            <option value="SE">Sverige</option>
+                            <option value="DK">Danmark</option>
+                            <option value="FI">Finland</option>
+                            <option value="GB">Storbritania</option>
+                            <option value="US">USA</option>
+                            <option value="DE">Tyskland</option>
+                            <option value="FR">Frankrike</option>
+                            <option value="ES">Spania</option>
+                            <option value="IT">Italia</option>
+                            <option value="JP">Japan</option>
+                            <option value="CN">Kina</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 5. Content Type Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'content'">
+                    <h3>Innholdstype</h3>
+                    <p class="filter-help">Velg hvilke typer innhold du vil inkludere</p>
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" x-model="filters.contentType.videos" />
+                            <span>Videoer</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" x-model="filters.contentType.livestreams" />
+                            <span>Direktesendinger</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" x-model="filters.contentType.shorts" />
+                            <span>Shorts</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 6. Popularity Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'popularity'">
+                    <h3>Popularitet</h3>
+                    <div class="form-group">
+                        <label>Minimum visninger</label>
+                        <input type="number" x-model.number="filters.popularity.minViews" min="0" class="input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Minimum likes</label>
+                        <input type="number" x-model.number="filters.popularity.minLikes" min="0" class="input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Minimum like-ratio (%)</label>
+                        <p class="filter-help">Likes per 100 visninger</p>
+                        <input type="number" x-model.number="filters.popularity.minLikeRatio" min="0" max="100" step="0.1" class="input" />
+                    </div>
+                </div>
+
+                <!-- 7. Channels Tab -->
+                <div class="filter-section" x-show="$el.dataset.tab === 'channels'">
+                    <h3>Kanaler å inkludere</h3>
+                    <p class="filter-help">Videoer fra disse kanalene vil bli inkludert</p>
+                    <div class="tag-input">
+                        <input
+                            type="text"
+                            x-model="channelInput"
+                            @keypress.enter="addIncludeChannel()"
+                            placeholder="Kanal-ID eller navn..."
+                            class="input"
+                        />
+                        <button @click="addIncludeChannel()" class="btn btn-small">Legg til</button>
+                    </div>
+                    <div class="tags-display">
+                        <template x-for="channel in filters.channels.include" :key="channel">
+                            <div class="tag tag-include">
+                                <span x-text="channel"></span>
+                                <button @click="removeIncludeChannel(channel)" class="tag-remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <h3 style="margin-top: 30px;">Kanaler å ekskludere</h3>
+                    <p class="filter-help">Videoer fra disse kanalene vil bli ekskludert</p>
+                    <div class="tag-input">
+                        <input
+                            type="text"
+                            x-model="channelInput"
+                            @keypress.enter="addExcludeChannel()"
+                            placeholder="Kanal-ID eller navn..."
+                            class="input"
+                        />
+                        <button @click="addExcludeChannel()" class="btn btn-small">Legg til</button>
+                    </div>
+                    <div class="tags-display">
+                        <template x-for="channel in filters.channels.exclude" :key="channel">
+                            <div class="tag tag-exclude">
+                                <span x-text="channel"></span>
+                                <button @click="removeExcludeChannel(channel)" class="tag-remove">✕</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="modal-actions">
+            <button class="btn btn-secondary" @click="closeFilterEditor()">Avbryt</button>
+            <button class="btn btn-primary" @click="saveFilters()">Lagre Filtre</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.filter-editor-modal {
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--spacing-md);
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+
+.modal-close:hover {
+    color: var(--text);
+}
+
+.modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0;
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    padding: 0 var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.filter-tab {
+    background: none;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.filter-tab:hover {
+    color: var(--text);
+}
+
+.filter-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Filter Sections */
+.filter-section {
+    padding: var(--spacing-md);
+    border-radius: var(--radius);
+}
+
+.filter-section h3 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-lg);
+}
+
+.filter-help {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Messages */
+.filter-error {
+    padding: var(--spacing-md);
+    background-color: #fee2e2;
+    border-left: 4px solid #ef4444;
+    border-radius: var(--radius);
+    color: #991b1b;
+    margin-bottom: var(--spacing-md);
+}
+
+.filter-success {
+    padding: var(--spacing-md);
+    background-color: #dcfce7;
+    border-left: 4px solid #22c55e;
+    border-radius: var(--radius);
+    color: #166534;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Tag Input */
+.tag-input {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.tag-input input {
+    flex: 1;
+}
+
+.tag-input button {
+    white-space: nowrap;
+}
+
+/* Tags Display */
+.tags-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    min-height: 30px;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: var(--primary);
+    color: white;
+    border-radius: 20px;
+    font-size: var(--font-size-sm);
+}
+
+.tag-include {
+    background-color: #3b82f6;
+}
+
+.tag-exclude {
+    background-color: #ef4444;
+}
+
+.tag-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: transform var(--transition-fast);
+}
+
+.tag-remove:hover {
+    transform: scale(1.2);
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+}
+
+/* Checkboxes */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* Filter Preview */
+.filter-preview {
+    padding: var(--spacing-md);
+    background-color: var(--background-alt);
+    border-radius: var(--radius);
+    font-size: var(--font-size-sm);
+}
+
+.filter-preview strong {
+    color: var(--text);
+}
+
+.filter-preview span {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .filter-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-editor-modal {
+        max-width: 100%;
+        border-radius: 0;
+    }
+}
+</style>

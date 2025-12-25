@@ -1,0 +1,37 @@
+# Git files
+.git
+.gitignore
+.dockerignore
+
+# Build outputs
+bin/
+obj/
+packages/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Node modules (for frontend)
+node_modules/
+
+# Documentation and spec files
+spec/
+*.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+**/TestResults/

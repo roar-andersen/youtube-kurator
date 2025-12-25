@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clearing Storage...</title>
+</head>
+<body>
+    <p>Clearing local storage...</p>
+    <script>
+        localStorage.clear();
+        sessionStorage.clear();
+        alert('Storage cleared! Redirecting to login...');
+        window.location.href = '/login.html';
+    </script>
+</body>
+</html>

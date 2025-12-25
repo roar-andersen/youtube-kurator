@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="description" content="Personlig YouTube-kurator for temabaserte spillelister">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+
+    <!-- Apple touch icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+
+    <title>YouTube Kurator</title>
+</head>
+<body>
+    <div id="app" x-data="appState()" x-init="initApp()">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="header-title">
+                    <a href="#" @click.prevent="showView('list')" class="logo-link">
+                        📺 YouTube Kurator
+                    </a>
+                </h1>
+                <nav class="breadcrumb" x-show="currentView === 'detail'">
+                    <a href="#" @click.prevent="showView('list')">Spillelister</a>
+                    <span class="separator">/</span>
+                    <span x-text="currentPlaylist?.name || 'Laster...'"></span>
+                </nav>
+                <div class="header-actions">
+                    <button class="btn btn-small" @click="logout()" title="Logg ut">
+                        🚪 Logg ut
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Error Message (Global) -->
+            <div x-show="error" class="error-toast" @click="error = null">
+                <span x-text="error"></span>
+                <button class="toast-close">✕</button>
+            </div>
+
+            <!-- Success Message (Global) -->
+            <div x-show="successMessage" class="success-toast" @click="successMessage = null">
+                <span x-text="successMessage"></span>
+                <button class="toast-close">✕</button>
+            </div>
+
+            <!-- Playlist List View -->
+            <section id="playlist-list" x-show="currentView === 'list'" class="view">
+                <div class="view-header">
+                    <h2>Mine Spillelister</h2>
+                    <button class="btn btn-primary" @click="showCreateDialog = true" :disabled="isLoading">
+                        + Ny Spilleliste
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="isLoading" class="loading-spinner">
+                    Laster spillelister...
+                </div>
+
+                <!-- Playlists Grid -->
+                <div x-show="!isLoading && playlists.length > 0" class="playlists-grid">
+                    <template x-for="playlist in playlists" :key="playlist.id">
+                        <div class="playlist-card" @click="selectPlaylist(playlist.id)">
+                            <div class="playlist-card-header">
+                                <h3 x-text="playlist.name"></h3>
+                            </div>
+                            <div class="playlist-card-body">
+                                <p class="search-query" x-text="playlist.searchQuery"></p>
+                                <p class="playlist-meta">
+                                    <span class="updated-date" x-text="formatDate(playlist.updatedUtc)"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="!isLoading && playlists.length === 0" class="empty-state">
+                    <p>Ingen spillelister ennå. Opprett en ny for å komme i gang!</p>
+                </div>
+            </section>
+
+            <!-- Playlist Detail View -->
+            <section id="playlist-detail" x-show="currentView === 'detail'" class="view">
+                <!-- Playlist Header & Controls -->
+                <div class="detail-header">
+                    <div class="detail-controls">
+                        <div class="edit-form">
+                            <label>Navn</label>
+                            <input type="text" x-model="currentPlaylist.name" class="input" />
+
+                            <label>Søkeord</label>
+                            <input type="text" x-model="currentPlaylist.searchQuery" class="input" />
+
+                            <div class="form-group checkbox-row">
+                                <label>
+                                    <input type="checkbox" x-model="currentPlaylist.enableDiscovery" />
+                                    <span>Aktiver oppdagingsmodus</span>
+                                </label>
+                                <p class="help-text">Blanding av relevante og mindre relevante videoer for variasjon</p>
+                            </div>
+
+                            <div class="button-group">
+                                <button class="btn btn-secondary" @click="savePlaylist()" :disabled="isLoading">
+                                    💾 Lagre
+                                </button>
+                                <button class="btn btn-secondary" @click="openFilterEditor()" :disabled="isLoading">
+                                    🎯 Filtre
+                                </button>
+                                <button class="btn btn-danger" @click="deletePlaylist()" :disabled="isLoading">
+                                    🗑️ Slett
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sort-controls">
+                        <label>Sortering:</label>
+                        <select x-model="sortBy" class="input">
+                            <option value="relevance">Relevans</option>
+                            <option value="newest">Nyeste først</option>
+                            <option value="oldest">Eldste først</option>
+                            <option value="most-viewed">Mest sett</option>
+                            <option value="least-viewed">Minst sett</option>
+                            <option value="title">Tittel (A-Z)</option>
+                        </select>
+                        <button class="btn btn-primary btn-large" @click="refreshPlaylist()" :disabled="isLoadingVideos">
+                            🔄 Oppdater Videoer
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cache Info -->
+                <div x-show="lastRefresh && lastRefresh.fromCache" class="cache-info">
+                    ℹ️ Videoene er hentet fra cache og er gyldige til
+                    <span x-text="formatDateTime(lastRefresh.cacheExpiresUtc)"></span>
+                </div>
+
+                <!-- Videos Loading -->
+                <div x-show="isLoadingVideos" class="loading-spinner">
+                    Henter videoer...
+                </div>
+
+                <!-- Videos Grid -->
+                <div x-show="!isLoadingVideos && videos.length > 0" class="videos-container">
+                    <div class="pagination-top">
+                        <button class="btn btn-small" @click="previousPage()" :disabled="currentPage === 1">
+                            ← Forrige
+                        </button>
+                        <span class="page-info">
+                            Side <span x-text="currentPage"></span> av <span x-text="totalPages"></span>
+                        </span>
+                        <button class="btn btn-small" @click="nextPage()" :disabled="currentPage === totalPages">
+                            Neste →
+                        </button>
+                    </div>
+
+                    <div class="videos-grid">
+                        <template x-for="video in paginatedVideos" :key="video.videoId">
+                            <div class="video-card" @click="openVideo(video.videoId)" role="button" tabindex="0">
+                                <div class="video-thumbnail">
+                                    <img :src="video.thumbnailUrl" :alt="video.title" loading="lazy" />
+                                    <div class="duration-badge" x-text="formatDuration(video.duration)"></div>
+                                    <div class="video-actions">
+                                        <button class="action-btn" @click.stop="toggleWatchLater(video.videoId)" title="Legg til/fjern fra senere">
+                                            <span x-show="video.isInWatchLater" class="watch-later-active">⏱</span>
+                                            <span x-show="!video.isInWatchLater" class="watch-later-inactive">⏱</span>
+                                        </button>
+                                        <button class="action-btn" @click.stop="toggleWatchStatus(video.videoId)" title="Merk som sett/usett">
+                                            <span x-show="video.isWatched" class="watched-indicator">✓</span>
+                                            <span x-show="!video.isWatched" class="unwatched-indicator">○</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="video-info">
+                                    <h4 class="video-title" x-text="video.title"></h4>
+                                    <p class="video-channel" x-text="video.channelName"></p>
+                                    <p class="video-description" x-show="video.description" x-text="video.description"></p>
+                                    <div class="video-meta">
+                                        <div class="video-stat">
+                                            <span class="stat-label">Visninger</span>
+                                            <span class="stat-value" x-text="formatViews(video.viewCount)"></span>
+                                        </div>
+                                        <div class="video-stat">
+                                            <span class="stat-label">Publisert</span>
+                                            <span class="stat-value" x-text="formatDate(video.publishedAt)"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="pagination-bottom">
+                        <button class="btn btn-small" @click="previousPage()" :disabled="currentPage === 1">
+                            ← Forrige
+                        </button>
+                        <span class="page-info">
+                            Side <span x-text="currentPage"></span> av <span x-text="totalPages"></span>
+                        </span>
+                        <button class="btn btn-small" @click="nextPage()" :disabled="currentPage === totalPages">
+                            Neste →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Empty Videos -->
+                <div x-show="!isLoadingVideos && videos.length === 0 && !error" class="empty-state">
+                    <p>Ingen videoer funnet. Prøv å oppdatere eller endre søkeordet.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Create Playlist Dialog -->
+        <div x-show="showCreateDialog" class="modal-overlay" @click.self="showCreateDialog = false">
+            <div class="modal">
+                <h2>Opprett ny Spilleliste</h2>
+                <div class="modal-body">
+                    <label>Navn</label>
+                    <input type="text" x-model="newPlaylist.name" class="input" placeholder="f.eks. Musikk" />
+
+                    <label>Søkeord</label>
+                    <input type="text" x-model="newPlaylist.searchQuery" class="input" placeholder="f.eks. beste sanger 2025" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @click="showCreateDialog = false" :disabled="isLoading">Avbryt</button>
+                    <button class="btn btn-primary" @click="createPlaylist()" :disabled="isLoading">Opprett</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Editor Modal -->
+        <div x-show="showFilterEditor" class="modal-overlay" @click.self="closeFilterEditor()">
+            <div class="modal filter-editor-modal">
+                <div class="modal-header">
+                    <h2>Rediger Filtre</h2>
+                    <button @click="closeFilterEditor()" class="modal-close">✕</button>
+                </div>
+
+                <div class="modal-content">
+                    <!-- Error Message -->
+                    <div x-show="filterValidationError" class="filter-error">
+                        <strong>⚠️</strong> <span x-text="filterValidationError"></span>
+                    </div>
+
+                    <!-- Success Message -->
+                    <div x-show="filterSaveMessage" class="filter-success">
+                        <strong>✓</strong> <span x-text="filterSaveMessage"></span>
+                    </div>
+
+                    <!-- Tabs Navigation -->
+                    <div class="filter-tabs">
+                        <button class="filter-tab" @click="currentFilterTab = 'themes'" :class="{'active': currentFilterTab === 'themes'}">
+                            🎯 Tema & Søk
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'duration'" :class="{'active': currentFilterTab === 'duration'}">
+                            ⏱️ Varighet
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'time'" :class="{'active': currentFilterTab === 'time'}">
+                            📅 Publisert
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'language'" :class="{'active': currentFilterTab === 'language'}">
+                            🌐 Språk
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'content'" :class="{'active': currentFilterTab === 'content'}">
+                            📹 Innhold
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'popularity'" :class="{'active': currentFilterTab === 'popularity'}">
+                            ⭐ Popularitet
+                        </button>
+                        <button class="filter-tab" @click="currentFilterTab = 'channels'" :class="{'active': currentFilterTab === 'channels'}">
+                            📺 Kanaler
+                        </button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="filter-content">
+                        <!-- 1. Themes & Keywords Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'themes'">
+                            <h3>Temaer</h3>
+                            <p class="filter-help">Legg til temaer du er interessert i (f.eks. gaming, musikk, programmering)</p>
+                            <div class="tag-input">
+                                <input
+                                    type="text"
+                                    x-model="themeInput"
+                                    @keypress.enter="addTheme()"
+                                    placeholder="Legg til tema..."
+                                    class="input"
+                                />
+                                <button @click="addTheme()" class="btn btn-small">Legg til</button>
+                            </div>
+                            <div class="tags-display">
+                                <template x-for="theme in filters.themes" :key="theme">
+                                    <div class="tag">
+                                        <span x-text="theme"></span>
+                                        <button @click="removeTheme(theme)" class="tag-remove">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <h3 style="margin-top: 30px;">Nøkkelord å inkludere</h3>
+                            <p class="filter-help">Videoer må inneholde minst ett av disse nøkkelordene</p>
+                            <div class="tag-input">
+                                <input
+                                    type="text"
+                                    x-model="includeKeywordInput"
+                                    @keypress.enter="addIncludeKeyword()"
+                                    placeholder="Legg til nøkkelord..."
+                                    class="input"
+                                />
+                                <button @click="addIncludeKeyword()" class="btn btn-small">Legg til</button>
+                            </div>
+                            <div class="tags-display">
+                                <template x-for="keyword in filters.keywords.include" :key="keyword">
+                                    <div class="tag tag-include">
+                                        <span x-text="keyword"></span>
+                                        <button @click="removeIncludeKeyword(keyword)" class="tag-remove">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <h3 style="margin-top: 30px;">Nøkkelord å ekskludere</h3>
+                            <p class="filter-help">Videoer som inneholder disse skal ikke vises</p>
+                            <div class="tag-input">
+                                <input
+                                    type="text"
+                                    x-model="excludeKeywordInput"
+                                    @keypress.enter="addExcludeKeyword()"
+                                    placeholder="Legg til nøkkelord..."
+                                    class="input"
+                                />
+                                <button @click="addExcludeKeyword()" class="btn btn-small">Legg til</button>
+                            </div>
+                            <div class="tags-display">
+                                <template x-for="keyword in filters.keywords.exclude" :key="keyword">
+                                    <div class="tag tag-exclude">
+                                        <span x-text="keyword"></span>
+                                        <button @click="removeExcludeKeyword(keyword)" class="tag-remove">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- 2. Duration Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'duration'">
+                            <h3>Videolengde</h3>
+                            <p class="filter-help">Velg ønsket lengde på videoer</p>
+                            <div class="form-group">
+                                <label>Minimum varighet (sekunder)</label>
+                                <input type="number" x-model.number="filters.duration.min" min="0" class="input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Maksimum varighet (sekunder)</label>
+                                <input type="number" x-model.number="filters.duration.max" min="0" class="input" />
+                            </div>
+                            <div class="filter-preview">
+                                <strong>Valgt range:</strong> <span x-text="formatDuration(filters.duration.min) + ' - ' + formatDuration(filters.duration.max)"></span>
+                            </div>
+                        </div>
+
+                        <!-- 3. Published Time Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'time'">
+                            <h3>Publiseringstid</h3>
+                            <div class="form-group">
+                                <label>
+                                    <input type="radio" x-model="filters.publishedTime.type" value="relative" />
+                                    Relativ (siste X dager)
+                                </label>
+                                <label style="margin-left: 20px;">
+                                    <input type="radio" x-model="filters.publishedTime.type" value="absolute" />
+                                    Absolutt (fra/til dato)
+                                </label>
+                            </div>
+
+                            <template x-if="filters.publishedTime.type === 'relative'">
+                                <div class="form-group">
+                                    <label>Antall dager tilbake</label>
+                                    <select x-model.number="filters.publishedTime.days" class="input">
+                                        <option value="1">Siste 1 dag</option>
+                                        <option value="7">Siste 7 dager</option>
+                                        <option value="30">Siste 30 dager</option>
+                                        <option value="90">Siste 90 dager</option>
+                                        <option value="365">Siste 365 dager</option>
+                                    </select>
+                                </div>
+                            </template>
+
+                            <template x-if="filters.publishedTime.type === 'absolute'">
+                                <div class="form-group">
+                                    <label>Fra dato</label>
+                                    <input type="date" x-model="filters.publishedTime.fromDate" class="input" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Til dato</label>
+                                    <input type="date" x-model="filters.publishedTime.toDate" class="input" />
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- 4. Language Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'language'">
+                            <h3>Språk og Region</h3>
+                            <div class="form-group">
+                                <label>Foretrukket språk</label>
+                                <select x-model="filters.language.preferred" class="input">
+                                    <option value="no">Norsk</option>
+                                    <option value="en">English</option>
+                                    <option value="sv">Svenska</option>
+                                    <option value="da">Dansk</option>
+                                    <option value="de">Deutsch</option>
+                                    <option value="fr">Français</option>
+                                    <option value="es">Español</option>
+                                    <option value="pt">Português</option>
+                                    <option value="it">Italiano</option>
+                                    <option value="ja">日本語</option>
+                                    <option value="zh">中文</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Region</label>
+                                <select x-model="filters.language.region" class="input">
+                                    <option value="NO">Norge</option>
+                                    <option value="SE">Sverige</option>
+                                    <option value="DK">Danmark</option>
+                                    <option value="FI">Finland</option>
+                                    <option value="GB">Storbritania</option>
+                                    <option value="US">USA</option>
+                                    <option value="DE">Tyskland</option>
+                                    <option value="FR">Frankrike</option>
+                                    <option value="ES">Spania</option>
+                                    <option value="IT">Italia</option>
+                                    <option value="JP">Japan</option>
+                                    <option value="CN">Kina</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 5. Content Type Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'content'">
+                            <h3>Innholdstype</h3>
+                            <p class="filter-help">Velg hvilke typer innhold du vil inkludere</p>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" x-model="filters.contentType.videos" />
+                                    <span>Videoer</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" x-model="filters.contentType.livestreams" />
+                                    <span>Direktesendinger</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" x-model="filters.contentType.shorts" />
+                                    <span>Shorts</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 6. Popularity Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'popularity'">
+                            <h3>Popularitet</h3>
+                            <div class="form-group">
+                                <label>Minimum visninger</label>
+                                <input type="number" x-model.number="filters.popularity.minViews" min="0" class="input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Minimum likes</label>
+                                <input type="number" x-model.number="filters.popularity.minLikes" min="0" class="input" />
+                            </div>
+                            <div class="form-group">
+                                <label>Minimum like-ratio (%)</label>
+                                <p class="filter-help">Likes per 100 visninger</p>
+                                <input type="number" x-model.number="filters.popularity.minLikeRatio" min="0" max="100" step="0.1" class="input" />
+                            </div>
+                        </div>
+
+                        <!-- 7. Channels Tab -->
+                        <div class="filter-section" x-show="currentFilterTab === 'channels'">
+                            <h3>Kanaler å inkludere</h3>
+                            <p class="filter-help">Videoer fra disse kanalene vil bli inkludert</p>
+                            <div class="tag-input">
+                                <input
+                                    type="text"
+                                    x-model="channelInput"
+                                    @keypress.enter="addIncludeChannel()"
+                                    placeholder="Kanal-ID eller navn..."
+                                    class="input"
+                                />
+                                <button @click="addIncludeChannel()" class="btn btn-small">Legg til</button>
+                            </div>
+                            <div class="tags-display">
+                                <template x-for="channel in filters.channels.include" :key="channel">
+                                    <div class="tag tag-include">
+                                        <span x-text="channel"></span>
+                                        <button @click="removeIncludeChannel(channel)" class="tag-remove">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <h3 style="margin-top: 30px;">Kanaler å ekskludere</h3>
+                            <p class="filter-help">Videoer fra disse kanalene vil bli ekskludert</p>
+                            <div class="tag-input">
+                                <input
+                                    type="text"
+                                    x-model="channelInput"
+                                    @keypress.enter="addExcludeChannel()"
+                                    placeholder="Kanal-ID eller navn..."
+                                    class="input"
+                                />
+                                <button @click="addExcludeChannel()" class="btn btn-small">Legg til</button>
+                            </div>
+                            <div class="tags-display">
+                                <template x-for="channel in filters.channels.exclude" :key="channel">
+                                    <div class="tag tag-exclude">
+                                        <span x-text="channel"></span>
+                                        <button @click="removeExcludeChannel(channel)" class="tag-remove">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @click="closeFilterEditor()">Avbryt</button>
+                    <button class="btn btn-primary" @click="saveFilters()">Lagre Filtre</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/auth-service.js"></script>
+    <script src="/js/http-client.js"></script>
+    <script src="/js/filter-editor.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="/app.js"></script>
+
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+        }
+    </script>
+</body>
+</html>
