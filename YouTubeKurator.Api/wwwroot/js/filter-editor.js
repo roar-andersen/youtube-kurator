@@ -48,6 +48,7 @@ function filterEditorData() {
         includeKeywordInput: '',
         excludeKeywordInput: '',
         channelInput: '',
+        channelExcludeInput: '',
 
         // ============================================================
         // Modal Control
@@ -245,10 +246,10 @@ function filterEditorData() {
         },
 
         addExcludeChannel() {
-            const channel = this.channelInput.trim();
+            const channel = this.channelExcludeInput.trim();
             if (channel && !this.filters.channels.exclude.includes(channel)) {
                 this.filters.channels.exclude.push(channel);
-                this.channelInput = '';
+                this.channelExcludeInput = '';
             }
         },
 

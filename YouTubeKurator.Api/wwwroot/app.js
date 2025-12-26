@@ -100,6 +100,7 @@ function appState() {
         includeKeywordInput: '',
         excludeKeywordInput: '',
         channelInput: '',
+        channelExcludeInput: '',
 
         // Computed properties
         get totalPages() {
@@ -583,10 +584,10 @@ function appState() {
         },
 
         addExcludeChannel() {
-            const channel = this.channelInput.trim();
+            const channel = this.channelExcludeInput.trim();
             if (channel && !this.filters.channels.exclude.includes(channel)) {
                 this.filters.channels.exclude.push(channel);
-                this.channelInput = '';
+                this.channelExcludeInput = '';
             }
         },
 
