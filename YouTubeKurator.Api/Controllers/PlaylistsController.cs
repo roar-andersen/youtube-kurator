@@ -101,9 +101,17 @@ namespace YouTubeKurator.Api.Controllers
         [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> CreatePlaylist([FromBody] CreatePlaylistRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.SearchQuery))
+            if (request == null || string.IsNullOrWhiteSpace(request.Name))
             {
-                return BadRequest(new { error = "Navn og søkeord er påkrevd." });
+                return BadRequest(new { error = "Navn er påkrevd." });
+            }
+
+            // Validér at minst ett filter er definert (søkeord regnes som filter)
+            bool hasSearchQuery = !string.IsNullOrWhiteSpace(request.SearchQuery);
+            bool hasFilters = !string.IsNullOrWhiteSpace(request.Filters);
+            if (!hasSearchQuery && !hasFilters)
+            {
+                return BadRequest(new { error = "Minst ett filter må være definert." });
             }
 
             try
@@ -120,7 +128,7 @@ namespace YouTubeKurator.Api.Controllers
                 {
                     Id = Guid.NewGuid(),
                     Name = request.Name,
-                    SearchQuery = request.SearchQuery,
+                    SearchQuery = request.SearchQuery ?? "",  // Tomt hvis ikke oppgitt
                     OwnerUserId = userId,
                     CreatedUtc = now,
                     UpdatedUtc = now,
@@ -147,9 +155,9 @@ namespace YouTubeKurator.Api.Controllers
         [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> UpdatePlaylist(Guid id, [FromBody] UpdatePlaylistRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.SearchQuery))
+            if (request == null || string.IsNullOrWhiteSpace(request.Name))
             {
-                return BadRequest(new { error = "Navn og søkeord er påkrevd." });
+                return BadRequest(new { error = "Navn er påkrevd." });
             }
 
             try
@@ -174,7 +182,7 @@ namespace YouTubeKurator.Api.Controllers
                 }
 
                 playlist.Name = request.Name;
-                playlist.SearchQuery = request.SearchQuery;
+                playlist.SearchQuery = request.SearchQuery ?? "";
                 playlist.UpdatedUtc = DateTime.UtcNow;
 
                 if (request.EnableDiscovery.HasValue)
@@ -250,9 +258,48 @@ namespace YouTubeKurator.Api.Controllers
                     return NotFound(new { error = "Spillelisten ble ikke funnet." });
                 }
 
+                // Parse filters fra JSON først for å kunne bygge søkeord
+                PlaylistFilters filters = new();
+                if (!string.IsNullOrEmpty(playlist.Filters))
+                {
+                    try
+                    {
+                        filters = JsonSerializer.Deserialize<PlaylistFilters>(playlist.Filters) ?? new();
+                    }
+                    catch
+                    {
+                        filters = new();
+                    }
+                }
+
+                // Bygg søkeord: bruk playlist.SearchQuery, eller bygg fra filtrer
+                string searchQuery = playlist.SearchQuery ?? "";
+                if (string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    // Bygg søkeord fra temaer og inkluderte nøkkelord
+                    var queryParts = new List<string>();
+
+                    if (filters.Themes?.Count > 0)
+                    {
+                        queryParts.AddRange(filters.Themes);
+                    }
+
+                    if (filters.IncludeKeywords?.Count > 0)
+                    {
+                        queryParts.AddRange(filters.IncludeKeywords);
+                    }
+
+                    searchQuery = string.Join(" ", queryParts);
+                }
+
+                if (string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    return BadRequest(new { error = "Spillelisten mangler søkekriterier. Legg til søkeord, temaer eller nøkkelord." });
+                }
+
                 // Hent videoer fra cache eller YouTube
                 var (videos, fromCache, cacheExpiresUtc, errorType, errorMessage) =
-                    await _cacheService.GetOrFetchVideosAsync(playlist.SearchQuery);
+                    await _cacheService.GetOrFetchVideosAsync(searchQuery);
 
                 // Hvis det ble en feil, returner med error
                 if (errorType != null)
@@ -265,21 +312,6 @@ namespace YouTubeKurator.Api.Controllers
                         error = new { type = errorType, message = errorMessage }
                     };
                     return Ok(errorResponse);
-                }
-
-                // Parse filters fra JSON
-                PlaylistFilters filters = new();
-                if (!string.IsNullOrEmpty(playlist.Filters))
-                {
-                    try
-                    {
-                        filters = JsonSerializer.Deserialize<PlaylistFilters>(playlist.Filters) ?? new();
-                    }
-                    catch
-                    {
-                        // Hvis JSON parsing feiler, bruk default filters
-                        filters = new();
-                    }
                 }
 
                 // Hent VideoStatuses for denne playlisten for å unngå duplikater

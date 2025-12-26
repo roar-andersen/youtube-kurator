@@ -2,6 +2,7 @@ using Xunit;
 using Moq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using YouTubeKurator.Api.Controllers;
 using YouTubeKurator.Api.Data;
 using YouTubeKurator.Api.Data.Entities;
@@ -33,6 +34,18 @@ namespace YouTubeKurator.Tests.Controllers
             return new SortingService();
         }
 
+        private IDiscoveryService CreateDiscoveryService()
+        {
+            var mock = new Mock<IDiscoveryService>();
+            return mock.Object;
+        }
+
+        private ILogger<PlaylistsController> CreateLogger()
+        {
+            var mock = new Mock<ILogger<PlaylistsController>>();
+            return mock.Object;
+        }
+
         [Fact]
         public async Task GetPlaylists_WithNoPlaylists_ReturnsEmptyList()
         {
@@ -40,7 +53,7 @@ namespace YouTubeKurator.Tests.Controllers
             var context = CreateInMemoryContext();
             var filterService = CreateFilterService();
             var sortingService = CreateSortingService();
-            var controller = new PlaylistsController(context, null, filterService, sortingService);
+            var controller = new PlaylistsController(context, null, filterService, sortingService, CreateDiscoveryService(), CreateLogger());
 
             // Act
             var result = await controller.GetPlaylists();
@@ -75,7 +88,7 @@ namespace YouTubeKurator.Tests.Controllers
             context.Playlists.AddRange(playlist1, playlist2);
             await context.SaveChangesAsync();
 
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
 
             // Act
             var result = await controller.GetPlaylists();
@@ -103,7 +116,7 @@ namespace YouTubeKurator.Tests.Controllers
             context.Playlists.Add(playlist);
             await context.SaveChangesAsync();
 
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
 
             // Act
             var result = await controller.GetPlaylist(playlistId);
@@ -120,7 +133,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
 
             // Act
             var result = await controller.GetPlaylist(Guid.NewGuid());
@@ -135,7 +148,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new CreatePlaylistRequest
             {
                 Name = "New Playlist",
@@ -161,7 +174,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
 
             // Act
             var result = await controller.CreatePlaylist(null);
@@ -176,7 +189,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new CreatePlaylistRequest
             {
                 Name = "",
@@ -196,7 +209,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new CreatePlaylistRequest
             {
                 Name = "Test",
@@ -228,7 +241,7 @@ namespace YouTubeKurator.Tests.Controllers
             context.Playlists.Add(playlist);
             await context.SaveChangesAsync();
 
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new UpdatePlaylistRequest
             {
                 Name = "New Name",
@@ -254,7 +267,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new UpdatePlaylistRequest
             {
                 Name = "New Name",
@@ -274,7 +287,7 @@ namespace YouTubeKurator.Tests.Controllers
         {
             // Arrange
             var context = CreateInMemoryContext();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService());
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), CreateDiscoveryService(), CreateLogger());
             var request = new UpdatePlaylistRequest
             {
                 Name = "",
@@ -307,7 +320,7 @@ namespace YouTubeKurator.Tests.Controllers
             await context.SaveChangesAsync();
 
             var discoveryServiceMock = new Mock<IDiscoveryService>();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object);
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object, CreateLogger());
 
             // Act
             var result = await controller.DeletePlaylist(playlistId);
@@ -325,7 +338,7 @@ namespace YouTubeKurator.Tests.Controllers
             // Arrange
             var context = CreateInMemoryContext();
             var discoveryServiceMock = new Mock<IDiscoveryService>();
-            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object);
+            var controller = new PlaylistsController(context, null, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object, CreateLogger());
 
             // Act
             var result = await controller.DeletePlaylist(Guid.NewGuid());
@@ -359,6 +372,7 @@ namespace YouTubeKurator.Tests.Controllers
                     VideoId = "test123",
                     Title = "Test Video",
                     ChannelName = "Test Channel",
+                    ChannelId = "channelTest",
                     ThumbnailUrl = "http://test.com/thumb.jpg",
                     Duration = TimeSpan.FromMinutes(5),
                     PublishedAt = DateTime.UtcNow,
@@ -374,7 +388,7 @@ namespace YouTubeKurator.Tests.Controllers
             discoveryServiceMock.Setup(x => x.SelectVideosWithDiscoveryAsync(It.IsAny<IEnumerable<Video>>(), It.IsAny<Playlist>(), It.IsAny<int>()))
                 .ReturnsAsync(testVideos);
 
-            var controller = new PlaylistsController(context, cacheServiceMock.Object, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object);
+            var controller = new PlaylistsController(context, cacheServiceMock.Object, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object, CreateLogger());
 
             // Act
             var result = await controller.RefreshPlaylist(playlistId);
@@ -391,7 +405,7 @@ namespace YouTubeKurator.Tests.Controllers
             var context = CreateInMemoryContext();
             var cacheServiceMock = new Mock<CacheService>(MockBehavior.Strict, context, null);
             var discoveryServiceMock = new Mock<IDiscoveryService>();
-            var controller = new PlaylistsController(context, cacheServiceMock.Object, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object);
+            var controller = new PlaylistsController(context, cacheServiceMock.Object, CreateFilterService(), CreateSortingService(), discoveryServiceMock.Object, CreateLogger());
 
             // Act
             var result = await controller.RefreshPlaylist(Guid.NewGuid());

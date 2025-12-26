@@ -21,7 +21,7 @@ namespace YouTubeKurator.Tests.Services
 
         private IJwtService CreateJwtService()
         {
-            var configDict = new Dictionary<string, string>
+            var configDict = new Dictionary<string, string?>
             {
                 { "Jwt:SecretKey", "this-is-a-32-character-secret-key-for-jwt!!!" },
                 { "Jwt:Issuer", "YouTubeKurator" },

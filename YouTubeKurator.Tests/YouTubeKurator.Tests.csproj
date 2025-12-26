@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\YouTubeKurator.Api\YouTubeKurator.Api.csproj" />
+    <ProjectReference Include="..\YouTubeKurator.Api\YouTubeKurator.Api.csproj" />
   </ItemGroup>
 
 </Project>

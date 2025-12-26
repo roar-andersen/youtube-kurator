@@ -17,7 +17,7 @@ namespace YouTubeKurator.Api.Services
 
         public YouTubeService(IConfiguration configuration)
         {
-            _apiKey = configuration["YouTubeApi:ApiKey"];
+            _apiKey = configuration["YouTubeApi:ApiKey"] ?? throw new InvalidOperationException("YOUTUBE_API_KEY er ikke konfigurert.");
             if (string.IsNullOrWhiteSpace(_apiKey))
             {
                 throw new InvalidOperationException("YOUTUBE_API_KEY er ikke konfigurert.");
@@ -29,7 +29,7 @@ namespace YouTubeKurator.Api.Services
             });
         }
 
-        public async Task<(List<Video> videos, string errorType, string errorMessage)> SearchVideosAsync(
+        public async Task<(List<Video> videos, string? errorType, string? errorMessage)> SearchVideosAsync(
             string searchQuery,
             int maxResults = 50)
         {
@@ -114,7 +114,7 @@ namespace YouTubeKurator.Api.Services
                 return (new List<Video>(), "NetworkError",
                     "Kunne ikke koble til YouTube. Sjekk internettforbindelsen.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return (new List<Video>(), "GenericError",
                     "Noe gikk galt ved søk. Prøv igjen senere.");

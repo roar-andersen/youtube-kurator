@@ -63,17 +63,17 @@ namespace YouTubeKurator.Api.Controllers
     {
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public required string Email { get; set; }
     }
 
     public class VerifyCodeRequest
     {
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public required string Email { get; set; }
 
         [Required]
         [StringLength(10, MinimumLength = 6)]
-        public string Code { get; set; }
+        public required string Code { get; set; }
     }
 }

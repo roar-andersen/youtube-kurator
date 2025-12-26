@@ -228,15 +228,18 @@
             <div class="modal">
                 <h2>Opprett ny Spilleliste</h2>
                 <div class="modal-body">
-                    <label>Navn</label>
-                    <input type="text" x-model="newPlaylist.name" class="input" placeholder="f.eks. Musikk" />
+                    <label>Navn *</label>
+                    <input type="text" x-model="newPlaylist.name" class="input" placeholder="f.eks. Favorittmusikk" @keypress.enter="proceedToFilters()" />
 
-                    <label>Søkeord</label>
-                    <input type="text" x-model="newPlaylist.searchQuery" class="input" placeholder="f.eks. beste sanger 2025" />
+                    <p class="help-text" style="margin-top: var(--spacing-md);">
+                        Etter du har gitt spillelisten et navn, definerer du filtrer som bestemmer hvilke videoer som vises.
+                    </p>
                 </div>
                 <div class="modal-actions">
                     <button class="btn btn-secondary" @click="showCreateDialog = false" :disabled="isLoading">Avbryt</button>
-                    <button class="btn btn-primary" @click="createPlaylist()" :disabled="isLoading">Opprett</button>
+                    <button class="btn btn-primary" @click="proceedToFilters()" :disabled="isLoading || !newPlaylist.name.trim()">
+                        Definer filter &rarr;
+                    </button>
                 </div>
             </div>
         </div>
@@ -245,11 +248,16 @@
         <div x-show="showFilterEditor" class="modal-overlay" @click.self="closeFilterEditor()">
             <div class="modal filter-editor-modal">
                 <div class="modal-header">
-                    <h2>Rediger Filtre</h2>
+                    <h2 x-text="isCreatingPlaylist ? 'Definer filter for: ' + newPlaylist.name : 'Rediger Filtre'"></h2>
                     <button @click="closeFilterEditor()" class="modal-close">✕</button>
                 </div>
 
                 <div class="modal-content">
+                    <!-- Help text for create mode -->
+                    <div x-show="isCreatingPlaylist" class="filter-help" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--background-card); border-radius: var(--radius-md); border-left: 3px solid var(--primary);">
+                        Legg til minst ett <strong>tema</strong> eller <strong>nøkkelord</strong> for å søke etter videoer.
+                    </div>
+
                     <!-- Error Message -->
                     <div x-show="filterValidationError" class="filter-error">
                         <strong>⚠️</strong> <span x-text="filterValidationError"></span>
@@ -323,7 +331,7 @@
                                 <button @click="addIncludeKeyword()" class="btn btn-small">Legg til</button>
                             </div>
                             <div class="tags-display">
-                                <template x-for="keyword in filters.keywords.include" :key="keyword">
+                                <template x-for="keyword in filters.includeKeywords" :key="keyword">
                                     <div class="tag tag-include">
                                         <span x-text="keyword"></span>
                                         <button @click="removeIncludeKeyword(keyword)" class="tag-remove">✕</button>
@@ -344,7 +352,7 @@
                                 <button @click="addExcludeKeyword()" class="btn btn-small">Legg til</button>
                             </div>
                             <div class="tags-display">
-                                <template x-for="keyword in filters.keywords.exclude" :key="keyword">
+                                <template x-for="keyword in filters.excludeKeywords" :key="keyword">
                                     <div class="tag tag-exclude">
                                         <span x-text="keyword"></span>
                                         <button @click="removeExcludeKeyword(keyword)" class="tag-remove">✕</button>
@@ -359,14 +367,14 @@
                             <p class="filter-help">Velg ønsket lengde på videoer</p>
                             <div class="form-group">
                                 <label>Minimum varighet (sekunder)</label>
-                                <input type="number" x-model.number="filters.duration.min" min="0" class="input" />
+                                <input type="number" x-model.number="filters.duration.minSeconds" min="0" class="input" />
                             </div>
                             <div class="form-group">
                                 <label>Maksimum varighet (sekunder)</label>
-                                <input type="number" x-model.number="filters.duration.max" min="0" class="input" />
+                                <input type="number" x-model.number="filters.duration.maxSeconds" min="0" class="input" />
                             </div>
                             <div class="filter-preview">
-                                <strong>Valgt range:</strong> <span x-text="formatDuration(filters.duration.min) + ' - ' + formatDuration(filters.duration.max)"></span>
+                                <strong>Valgt range:</strong> <span x-text="formatDuration(filters.duration.minSeconds) + ' - ' + formatDuration(filters.duration.maxSeconds)"></span>
                             </div>
                         </div>
 
@@ -400,11 +408,11 @@
                             <template x-if="filters.publishedTime.type === 'absolute'">
                                 <div class="form-group">
                                     <label>Fra dato</label>
-                                    <input type="date" x-model="filters.publishedTime.fromDate" class="input" />
+                                    <input type="date" x-model="filters.publishedTime.startDate" class="input" />
                                 </div>
                                 <div class="form-group">
                                     <label>Til dato</label>
-                                    <input type="date" x-model="filters.publishedTime.toDate" class="input" />
+                                    <input type="date" x-model="filters.publishedTime.endDate" class="input" />
                                 </div>
                             </template>
                         </div>
@@ -535,7 +543,7 @@
                 <!-- Modal Actions -->
                 <div class="modal-actions">
                     <button class="btn btn-secondary" @click="closeFilterEditor()">Avbryt</button>
-                    <button class="btn btn-primary" @click="saveFilters()">Lagre Filtre</button>
+                    <button class="btn btn-primary" @click="saveFilters()" x-text="isCreatingPlaylist ? 'Opprett Spilleliste' : 'Lagre Filtre'"></button>
                 </div>
             </div>
         </div>

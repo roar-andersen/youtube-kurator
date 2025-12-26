@@ -10,10 +10,10 @@ namespace YouTubeKurator.Api.Data.Entities
 
         [Required]
         [StringLength(500)]
-        public string SearchQuery { get; set; }
+        public required string SearchQuery { get; set; }
 
         [Required]
-        public string ResultsJson { get; set; }
+        public required string ResultsJson { get; set; }
 
         [Required]
         public DateTime FetchedUtc { get; set; }

@@ -4,11 +4,11 @@ namespace YouTubeKurator.Api.Data.Entities
 {
     public class Video
     {
-        public string VideoId { get; set; }
-        public string Title { get; set; }
-        public string ChannelName { get; set; }
-        public string ChannelId { get; set; }
-        public string ThumbnailUrl { get; set; }
+        public required string VideoId { get; set; }
+        public required string Title { get; set; }
+        public required string ChannelName { get; set; }
+        public required string ChannelId { get; set; }
+        public required string ThumbnailUrl { get; set; }
         public TimeSpan Duration { get; set; }
         public DateTime PublishedAt { get; set; }
         public long ViewCount { get; set; }

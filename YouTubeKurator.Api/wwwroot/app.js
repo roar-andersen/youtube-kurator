@@ -48,36 +48,34 @@ function appState() {
 
         // New playlist form
         newPlaylist: {
-            name: '',
-            searchQuery: ''
+            name: ''
         },
 
         // Filter Editor State
         showFilterEditor: false,
+        isCreatingPlaylist: false,  // True når vi oppretter ny playlist via filter-editor
         filterValidationError: null,
         filterSaveMessage: null,
         currentFilterTab: 'themes',
 
-        // Filter Data Structure
+        // Filter Data Structure (matcher backend PlaylistFilters)
         filters: {
             themes: [],
-            keywords: {
-                include: [],
-                exclude: []
-            },
+            includeKeywords: [],
+            excludeKeywords: [],
             duration: {
-                min: 0,
-                max: 10800 // 3 hours
+                minSeconds: 0,
+                maxSeconds: 10800 // 3 hours
             },
             publishedTime: {
                 type: 'relative', // 'relative' or 'absolute'
                 days: 30,
-                fromDate: null,
-                toDate: null
+                startDate: null,
+                endDate: null
             },
             language: {
-                preferred: 'en',
-                region: 'GB'
+                preferred: 'no',
+                region: 'NO'
             },
             contentType: {
                 videos: true,
@@ -196,25 +194,70 @@ function appState() {
             }
         },
 
+        // Gå videre fra navn-dialog til filter-editor
+        proceedToFilters() {
+            if (!this.newPlaylist.name.trim()) {
+                this.showError('Navn er påkrevd.');
+                return;
+            }
+
+            // Lukk create dialog, åpne filter editor i "create mode"
+            this.showCreateDialog = false;
+            this.isCreatingPlaylist = true;
+            this.resetFilters();
+            this.currentFilterTab = 'themes';
+            this.filterValidationError = null;
+            this.filterSaveMessage = null;
+            this.showFilterEditor = true;
+        },
+
+        // Reset filtrer til default verdier
+        resetFilters() {
+            this.filters = {
+                themes: [],
+                includeKeywords: [],
+                excludeKeywords: [],
+                duration: { minSeconds: 0, maxSeconds: 10800 },
+                publishedTime: { type: 'relative', days: 30, startDate: null, endDate: null },
+                language: { preferred: 'no', region: 'NO' },
+                contentType: { videos: true, livestreams: false, shorts: false },
+                popularity: { minViews: 0, minLikes: 0, minLikeRatio: 0 },
+                channels: { include: [], exclude: [] }
+            };
+        },
+
         async createPlaylist() {
-            if (!this.newPlaylist.name.trim() || !this.newPlaylist.searchQuery.trim()) {
-                this.showError(ERROR_MESSAGES.INVALID_INPUT);
+            // Valider at minst ett søkekriterium er definert
+            const hasThemes = this.filters.themes.length > 0;
+            const hasKeywords = this.filters.includeKeywords.length > 0;
+
+            if (!hasThemes && !hasKeywords) {
+                this.filterValidationError = 'Legg til minst ett tema eller nøkkelord for å søke etter videoer.';
                 return;
             }
 
             this.isLoading = true;
             this.error = null;
             try {
-                const response = await httpClient.post('/api/playlists', this.newPlaylist);
+                const response = await httpClient.post('/api/playlists', {
+                    name: this.newPlaylist.name,
+                    filters: JSON.stringify(this.filters)
+                });
 
                 if (!response.ok) {
                     throw new Error('Failed to create playlist');
                 }
 
-                this.newPlaylist = { name: '', searchQuery: '' };
-                this.showCreateDialog = false;
+                const createdPlaylist = await response.json();
+
+                this.newPlaylist = { name: '' };
+                this.showFilterEditor = false;
+                this.isCreatingPlaylist = false;
                 await this.loadPlaylists();
                 this.showSuccess('Spillelisten ble opprettet!');
+
+                // Automatisk åpne den nye spillelisten
+                await this.selectPlaylist(createdPlaylist.id);
             } catch (err) {
                 console.error('Error creating playlist:', err);
                 this.showError(ERROR_MESSAGES.CREATE_FAILED);
@@ -419,6 +462,12 @@ function appState() {
             this.showFilterEditor = false;
             this.filterValidationError = null;
             this.filterSaveMessage = null;
+
+            // Hvis vi var i create mode, avbryt opprettelsen
+            if (this.isCreatingPlaylist) {
+                this.isCreatingPlaylist = false;
+                this.newPlaylist = { name: '' };
+            }
         },
 
         loadFiltersFromPlaylist() {
@@ -435,19 +484,17 @@ function appState() {
         mergeFilters(defaults, loaded) {
             return {
                 themes: loaded.themes || defaults.themes,
-                keywords: {
-                    include: loaded.keywords?.include || defaults.keywords.include,
-                    exclude: loaded.keywords?.exclude || defaults.keywords.exclude
-                },
+                includeKeywords: loaded.includeKeywords || defaults.includeKeywords,
+                excludeKeywords: loaded.excludeKeywords || defaults.excludeKeywords,
                 duration: {
-                    min: loaded.duration?.min ?? defaults.duration.min,
-                    max: loaded.duration?.max ?? defaults.duration.max
+                    minSeconds: loaded.duration?.minSeconds ?? defaults.duration.minSeconds,
+                    maxSeconds: loaded.duration?.maxSeconds ?? defaults.duration.maxSeconds
                 },
                 publishedTime: {
                     type: loaded.publishedTime?.type || defaults.publishedTime.type,
                     days: loaded.publishedTime?.days || defaults.publishedTime.days,
-                    fromDate: loaded.publishedTime?.fromDate || defaults.publishedTime.fromDate,
-                    toDate: loaded.publishedTime?.toDate || defaults.publishedTime.toDate
+                    startDate: loaded.publishedTime?.startDate || defaults.publishedTime.startDate,
+                    endDate: loaded.publishedTime?.endDate || defaults.publishedTime.endDate
                 },
                 language: {
                     preferred: loaded.language?.preferred || defaults.language.preferred,
@@ -476,6 +523,12 @@ function appState() {
                 return;
             }
 
+            // Hvis vi er i create mode, opprett playlist
+            if (this.isCreatingPlaylist) {
+                this.createPlaylist();
+                return;
+            }
+
             // Save to playlist
             this.currentPlaylist.filters = JSON.stringify(this.filters);
 
@@ -491,7 +544,7 @@ function appState() {
             this.filterValidationError = null;
 
             // Duration validation
-            if (this.filters.duration.min >= this.filters.duration.max) {
+            if (this.filters.duration.minSeconds >= this.filters.duration.maxSeconds) {
                 this.filterValidationError = 'Minimum varighet må være mindre enn maksimum';
                 return false;
             }
@@ -507,9 +560,9 @@ function appState() {
 
             // Published time validation for absolute dates
             if (this.filters.publishedTime.type === 'absolute') {
-                if (this.filters.publishedTime.fromDate && this.filters.publishedTime.toDate) {
-                    const from = new Date(this.filters.publishedTime.fromDate);
-                    const to = new Date(this.filters.publishedTime.toDate);
+                if (this.filters.publishedTime.startDate && this.filters.publishedTime.endDate) {
+                    const from = new Date(this.filters.publishedTime.startDate);
+                    const to = new Date(this.filters.publishedTime.endDate);
                     if (from >= to) {
                         this.filterValidationError = 'Fra-dato må være før til-dato';
                         return false;
@@ -539,31 +592,31 @@ function appState() {
         // Tag management - Keywords
         addIncludeKeyword() {
             const keyword = this.includeKeywordInput.trim();
-            if (keyword && !this.filters.keywords.include.includes(keyword)) {
-                this.filters.keywords.include.push(keyword);
+            if (keyword && !this.filters.includeKeywords.includes(keyword)) {
+                this.filters.includeKeywords.push(keyword);
                 this.includeKeywordInput = '';
             }
         },
 
         removeIncludeKeyword(keyword) {
-            const idx = this.filters.keywords.include.indexOf(keyword);
+            const idx = this.filters.includeKeywords.indexOf(keyword);
             if (idx > -1) {
-                this.filters.keywords.include.splice(idx, 1);
+                this.filters.includeKeywords.splice(idx, 1);
             }
         },
 
         addExcludeKeyword() {
             const keyword = this.excludeKeywordInput.trim();
-            if (keyword && !this.filters.keywords.exclude.includes(keyword)) {
-                this.filters.keywords.exclude.push(keyword);
+            if (keyword && !this.filters.excludeKeywords.includes(keyword)) {
+                this.filters.excludeKeywords.push(keyword);
                 this.excludeKeywordInput = '';
             }
         },
 
         removeExcludeKeyword(keyword) {
-            const idx = this.filters.keywords.exclude.indexOf(keyword);
+            const idx = this.filters.excludeKeywords.indexOf(keyword);
             if (idx > -1) {
-                this.filters.keywords.exclude.splice(idx, 1);
+                this.filters.excludeKeywords.splice(idx, 1);
             }
         },
 

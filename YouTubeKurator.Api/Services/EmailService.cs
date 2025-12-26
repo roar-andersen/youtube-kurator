@@ -29,7 +29,7 @@ namespace YouTubeKurator.Api.Services
                 var fromAddress = _configuration["Email:FromAddress"];
 
                 // If email is not configured, just log the code
-                if (string.IsNullOrEmpty(smtpHost))
+                if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(fromAddress))
                 {
                     _logger.LogInformation($"Auth code for {toEmail}: {code}");
                     return;

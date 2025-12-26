@@ -23,7 +23,7 @@ namespace YouTubeKurator.Api.Services
         /// <summary>
         /// Henter videoer fra cache hvis gyldig, ellers fra YouTube.
         /// </summary>
-        public async Task<(List<Video> videos, bool fromCache, DateTime? cacheExpiresUtc, string errorType, string errorMessage)>
+        public async Task<(List<Video> videos, bool fromCache, DateTime? cacheExpiresUtc, string? errorType, string? errorMessage)>
             GetOrFetchVideosAsync(string searchQuery)
         {
             if (string.IsNullOrWhiteSpace(searchQuery))

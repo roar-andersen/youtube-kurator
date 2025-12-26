@@ -27,7 +27,7 @@ dotnet restore
 
 # Run application (development)
 dotnet run
-# Runs on http://localhost:5000 and https://localhost:5001
+# Runs on http://localhost:5228 and https://localhost:7004
 
 # Build for production
 dotnet build -c Release

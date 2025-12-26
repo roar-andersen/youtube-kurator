@@ -14,7 +14,7 @@ namespace YouTubeKurator.Api.Data.Entities
 
         [Required]
         [StringLength(255)]
-        public string Name { get; set; }
+        public required string Name { get; set; }
 
         // v1 field - keep for backward compatibility during migration
         [StringLength(500)]

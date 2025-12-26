@@ -13,7 +13,7 @@ namespace YouTubeKurator.Api.Services
 
         private class CacheEntry<T>
         {
-            public T Data { get; set; }
+            public required T Data { get; set; }
             public DateTime ExpiresAt { get; set; }
         }
 
